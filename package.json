@@ -1,0 +1,31 @@
+{
+  "name": "leaderboard-redis",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gozeloglu/leaderboard-redis.git"
+  },
+  "keywords": [
+    "redis",
+    "leaderboard"
+  ],
+  "author": "Gökhan Özeloğlu",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gozeloglu/leaderboard-redis/issues"
+  },
+  "homepage": "https://github.com/gozeloglu/leaderboard-redis#readme",
+  "dependencies": {
+    "express": "^4.18.1",
+    "redis": "^4.1.0"
+  },
+  "devDependencies": {
+    "jest": "^26.6.3"
+  }
+}
