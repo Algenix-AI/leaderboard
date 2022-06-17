@@ -2,9 +2,9 @@
   "name": "leaderboard-redis",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.mjs",
   "scripts": {
-    "start": "node index.js",
+    "start": "node index.mjs",
     "test": "jest"
   },
   "repository": {
@@ -23,6 +23,7 @@
   "homepage": "https://github.com/gozeloglu/leaderboard-redis#readme",
   "dependencies": {
     "express": "^4.18.1",
+    "nanoid": "^4.0.0",
     "redis": "^4.1.0"
   },
   "devDependencies": {

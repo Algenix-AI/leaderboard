@@ -1,5 +1,6 @@
-const redis = require("redis");
-const express = require("express");
+import redis from "redis";
+import express from "express";
+import {nanoid} from "nanoid/non-secure";
 
 const app = express();
 app.use(express.json());
@@ -88,6 +89,40 @@ app.delete('/user/delete/:uid', async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.json({
     success_message: 'Deleted ' + uid
+  });
+});
+
+app.get('/user/addRandom', async (req, res, next) => {
+  try {
+    const arr = [];
+    for (let i = 0; i < 30; i++) {
+      const uid = nanoid();
+      const results = Math.floor(Math.random() * 100);
+      arr.push({ score: results, value: uid });
+    }
+    await client.ZADD("pushups", arr);
+    res.send({
+      success: true
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.delete('/user/deleteAll', async (req, res) => {
+  try {
+    await client.ZREMRANGEBYRANK("pushups", 0, -1);
+  } catch (err) {
+    res.status(400);
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      error_message: "Unable to delete user id: " + uid
+    });
+  }
+  res.status(200);
+  res.setHeader('Content-Type', 'application/json');
+  res.json({
+    success_message: 'Deleted all'
   });
 });
 
