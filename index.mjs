@@ -126,7 +126,7 @@ app.delete('/user/deleteAll', async (req, res) => {
   });
 });
 
-app.listen(80, async () => {
+app.listen(3000, async () => {
   console.log("server is running");
   await client.connect();
   console.log(await client.ping());

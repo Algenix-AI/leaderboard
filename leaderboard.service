@@ -1,0 +1,13 @@
+[Unit]
+Description=The leaderboard code
+Documentation=https://www.google.com
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+ExecStart=/home/ubuntu/.nvm/versions/node/v16.15.1/bin/node /home/ubuntu/leaderboard/index.mjs
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
