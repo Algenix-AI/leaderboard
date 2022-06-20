@@ -40,10 +40,15 @@ app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res
   try {
     const leaderboard = await client.ZRANGE_WITHSCORES(exercise, start, end, { REV: true });
     const rankings = await Promise.all(leaderboard.map(async (object) => {
+      const profileData = await client.json.get(object.value, {
+        path: ['.nickname', '.photoURL']
+      });
       return {
         uid: object.value,
-        results: object.score,
-        rank: await getRank(exercise, object.value)
+        results: object.score.toFixed(1),
+        rank: await getRank(exercise, object.value),
+        nickname: profileData['.nickname'],
+        photoURL: profileData['.photoURL']
       }
     }))
     res.send(rankings);
@@ -58,7 +63,7 @@ app.post('/:exercise/addToUserCumulative', async (req, res, next) => {
     const exercise = req.params.exercise;
     const { uid, scoreOfLatest } = req.body;
     // await client.HSET(uid, "points", points);
-    const updatedScore = await client.ZINCRBY(exercise, scoreOfLatest, uid);
+    const updatedScore = await client.ZINCRBY(exercise, parseFloat(scoreOfLatest), uid);
     // const rank = await getRank(uid);
     // const points = await client.HGET(uid, "points");
 
@@ -105,8 +110,8 @@ app.delete('/:exercise/deleteUser/:uid', async (req, res) => {
   });
 });
 
-//get the user's leaderboard stats
-app.get('/:exercise/user/profile/:uid', async (req, res, next) => {
+//get the user's exercise stats
+app.get('/:exercise/user/:uid', async (req, res, next) => {
   try {
     const exercise = req.params.exercise;
     const uid = req.params.uid;
