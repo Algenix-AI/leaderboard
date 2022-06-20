@@ -133,10 +133,7 @@ app.get('/:exercise/addRandomUsers', async (req, res, next) => {
       arr.push({ score: results, value: uid });
     }
     await client.ZADD(exercise, arr);
-    res.send(200);
-    // res.send({
-    //   success: true
-    // });
+    res.sendStatus(200);
   } catch (err) {
     next(err);
   }
@@ -148,7 +145,7 @@ app.delete('/:exercise/deleteAllUsers', async (req, res) => {
   try {
     const exercise = req.params.exercise;
     await client.ZREMRANGEBYRANK(exercise, 0, -1);
-    res.send(200);
+    res.sendStatus(200);
   } catch (err) {
     res.status(400);
     res.setHeader('Content-Type', 'application/json');
@@ -156,22 +153,14 @@ app.delete('/:exercise/deleteAllUsers', async (req, res) => {
       error_message: "Unable to delete user id: " + uid
     });
   }
-  // res.setHeader('Content-Type', 'application/json');
-  // res.json({
-  //   success_message: 'Deleted all'
-  // });
 });
 
 app.post('/user/addUserStatistics/:uid', async (req, res, next) => {
   const uid = req.params.uid;
   const { userProfileStatistics } = req.body;
-  console.log(uid)
-
-  console.log("Tt")
-  console.log(userProfileStatistics);
   try {
-    await client.HSET('users', uid, userProfileStatistics);
-    res.send(200);
+    await client.json.set(uid, '$', userProfileStatistics);
+    res.sendStatus(200);
   } catch (err) {
     next(err);
   }
@@ -180,9 +169,9 @@ app.post('/user/addUserStatistics/:uid', async (req, res, next) => {
 app.get('/user/getUserStatistics/:uid', async (req, res, next) => {
   const uid = req.params.uid;
   try {
-    const stats = await client.HGET('users', uid);
+    const results = await client.json.get(uid);
     res.status(200);
-    res.send(stats);
+    res.send(results);
   } catch (err) {
     next(err);
   }
