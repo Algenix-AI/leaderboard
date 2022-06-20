@@ -5,7 +5,7 @@ import {nanoid} from "nanoid/non-secure";
 const app = express();
 app.use(express.json());
 
-const getRank = async (uid) => (await client.ZREVRANK("pushups", uid)) + 1;
+const getRank = async (exercise, uid) => (await client.ZREVRANK(exercise, uid)) + 1;
 
 const client = redis.createClient({
   socket: {
@@ -18,7 +18,9 @@ const client = redis.createClient({
 
 client.on('error', (err) => console.log('Redis Client Error', err));
 
-app.get('/leaderboard/:numberOfResults?/:pageNumber?', async (req, res, next) => {
+// if number of results and page number not specified, we have defaults
+app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res, next) => {
+  const exercise = req.params.exercise;
   const numberOfResults = req.params.numberOfResults || 0;
   const pageNumber = req.params.pageNumber || 0;
   let start, end;
@@ -30,12 +32,12 @@ app.get('/leaderboard/:numberOfResults?/:pageNumber?', async (req, res, next) =>
     end = start + numberOfResults;
   }
   try {
-    const leaderboard = await client.ZRANGE("pushups", start, end);
+    const leaderboard = await client.ZRANGE(exercise, start, end);
     const rankings = await Promise.all(leaderboard.map(async (uid) => {
       return {
         uid,
-        results: await client.ZSCORE("pushups", uid),
-        rank: await getRank(uid)
+        results: await client.ZSCORE(exercise, uid),
+        rank: await getRank(exercise, uid)
       }
     }))
     res.send(rankings);
@@ -44,20 +46,24 @@ app.get('/leaderboard/:numberOfResults?/:pageNumber?', async (req, res, next) =>
   }
 });
 
-app.put('/user/addCumulative', async (req, res, next) => {
+//todo make this safer, if client accidentally sends the same request twice
+app.post('/:exercise/user/addLatestToCumulative', async (req, res, next) => {
   try {
-    const { uid, results } = req.body;
+    const exercise = req.params.exercise;
+    const { uid, scoreOfLatest } = req.body;
     // await client.HSET(uid, "points", points);
-    await client.ZADD("pushups", { score: results, value: uid });
-    const rank = await getRank(uid);
+    const updatedScore = await client.ZINCRBY(exercise, scoreOfLatest, uid);
+    // const rank = await getRank(uid);
     // const points = await client.HGET(uid, "points");
-    // const results = await client.ZSCORE("pushups", uid);
+    // const results = await client.ZSCORE(exercise, uid);
 
+    res.status(200);
     res.setHeader('Content-Type', 'application/json');
     res.json({
-      rank,
+      // rank,
+      updatedScore,
       uid,
-      results,
+      // cumulativeScore,
       // points,
     });
   } catch (err) {
@@ -65,8 +71,10 @@ app.put('/user/addCumulative', async (req, res, next) => {
   }
 });
 
-app.delete('/user/delete/:uid', async (req, res) => {
+//delete the specified user
+app.delete('/:exercise/user/delete/:uid', async (req, res) => {
   const uid = req.params.uid;
+  const exercise = req.params.exercise;
   // try {
   // await client.HDEL(uid, "points", uid);
   // } catch (err) {
@@ -77,7 +85,7 @@ app.delete('/user/delete/:uid', async (req, res) => {
   //   });
   // }
   try {
-    await client.ZREM("pushups", uid);
+    await client.ZREM(exercise, uid);
   } catch (err) {
     res.status(400);
     res.setHeader('Content-Type', 'application/json');
@@ -92,26 +100,50 @@ app.delete('/user/delete/:uid', async (req, res) => {
   });
 });
 
-app.get('/user/addRandom', async (req, res, next) => {
+//get the user's leaderboard stats
+app.get('/:exercise/user/profile/:uid', async (req, res, next) => {
   try {
-    const arr = [];
-    for (let i = 0; i < 30; i++) {
-      const uid = nanoid();
-      const results = Math.floor(Math.random() * 100);
-      arr.push({ score: results, value: uid });
-    }
-    await client.ZADD("pushups", arr);
+    const exercise = req.params.exercise;
+    const uid = req.params.uid;
+    const score = client.ZSCORE(exercise, uid);
+    const rank = getRank(exercise, uid);
+    res.status(200);
     res.send({
-      success: true
+      score: await score,
+      rank: await rank
     });
   } catch (err) {
     next(err);
   }
 });
 
-app.delete('/user/deleteAll', async (req, res) => {
+//populate the leaderboard randomly
+app.get('/:exercise/user/addRandom', async (req, res, next) => {
   try {
-    await client.ZREMRANGEBYRANK("pushups", 0, -1);
+    const exercise = req.params.exercise;
+    const arr = [];
+    for (let i = 0; i < 30; i++) {
+      const uid = nanoid();
+      const results = Math.floor(Math.random() * 100);
+      arr.push({ score: results, value: uid });
+    }
+    await client.ZADD(exercise, arr);
+    res.send(200);
+    // res.send({
+    //   success: true
+    // });
+  } catch (err) {
+    next(err);
+  }
+});
+
+//todo authenticate this request
+//delete all the users
+app.delete('/:exercise/user/deleteAll', async (req, res) => {
+  try {
+    const exercise = req.params.exercise;
+    await client.ZREMRANGEBYRANK(exercise, 0, -1);
+    res.send(200);
   } catch (err) {
     res.status(400);
     res.setHeader('Content-Type', 'application/json');
@@ -119,11 +151,10 @@ app.delete('/user/deleteAll', async (req, res) => {
       error_message: "Unable to delete user id: " + uid
     });
   }
-  res.status(200);
-  res.setHeader('Content-Type', 'application/json');
-  res.json({
-    success_message: 'Deleted all'
-  });
+  // res.setHeader('Content-Type', 'application/json');
+  // res.json({
+  //   success_message: 'Deleted all'
+  // });
 });
 
 app.listen(3000, async () => {
