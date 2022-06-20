@@ -1,11 +1,11 @@
 import redis from "redis";
 import express from "express";
-import {nanoid} from "nanoid/non-secure";
+import { nanoid } from "nanoid/non-secure";
 
 const app = express();
 app.use(express.json());
 //todo fix CORS policy, currently wildcarded for testing
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
   next();
@@ -38,7 +38,7 @@ app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res
     end = start + numberOfResults;
   }
   try {
-    const leaderboard = await client.ZRANGE_WITHSCORES(exercise, start, end, {REV: true});
+    const leaderboard = await client.ZRANGE_WITHSCORES(exercise, start, end, { REV: true });
     const rankings = await Promise.all(leaderboard.map(async (object) => {
       return {
         uid: object.value,
@@ -170,6 +170,19 @@ app.get('/user/getUserStatistics/:uid', async (req, res, next) => {
   const uid = req.params.uid;
   try {
     const results = await client.json.get(uid);
+    res.status(200);
+    res.send(results);
+  } catch (err) {
+    next(err);
+  }
+})
+
+app.get('/user/getUserPhotoURL/:uid', async (req, res, next) => {
+  const uid = req.params.uid;
+  try {
+    const results = await client.json.get(uid, {
+      path: ['.photoURL']
+    });
     res.status(200);
     res.send(results);
   } catch (err) {
