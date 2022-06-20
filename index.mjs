@@ -53,7 +53,7 @@ app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res
 });
 
 //todo make this safer, if client accidentally sends the same request twice
-app.post('/:exercise/user/addLatestToCumulative', async (req, res, next) => {
+app.post('/:exercise/addToUserCumulative', async (req, res, next) => {
   try {
     const exercise = req.params.exercise;
     const { uid, scoreOfLatest } = req.body;
@@ -61,7 +61,6 @@ app.post('/:exercise/user/addLatestToCumulative', async (req, res, next) => {
     const updatedScore = await client.ZINCRBY(exercise, scoreOfLatest, uid);
     // const rank = await getRank(uid);
     // const points = await client.HGET(uid, "points");
-    // const results = await client.ZSCORE(exercise, uid);
 
     res.status(200);
     res.setHeader('Content-Type', 'application/json');
@@ -78,7 +77,7 @@ app.post('/:exercise/user/addLatestToCumulative', async (req, res, next) => {
 });
 
 //delete the specified user
-app.delete('/:exercise/user/delete/:uid', async (req, res) => {
+app.delete('/:exercise/deleteUser/:uid', async (req, res) => {
   const uid = req.params.uid;
   const exercise = req.params.exercise;
   // try {
@@ -124,7 +123,7 @@ app.get('/:exercise/user/profile/:uid', async (req, res, next) => {
 });
 
 //populate the leaderboard randomly
-app.get('/:exercise/user/addRandom', async (req, res, next) => {
+app.get('/:exercise/addRandomUsers', async (req, res, next) => {
   try {
     const exercise = req.params.exercise;
     const arr = [];
@@ -145,7 +144,7 @@ app.get('/:exercise/user/addRandom', async (req, res, next) => {
 
 //todo authenticate this request
 //delete all the users
-app.delete('/:exercise/user/deleteAll', async (req, res) => {
+app.delete('/:exercise/deleteAllUsers', async (req, res) => {
   try {
     const exercise = req.params.exercise;
     await client.ZREMRANGEBYRANK(exercise, 0, -1);
@@ -162,6 +161,32 @@ app.delete('/:exercise/user/deleteAll', async (req, res) => {
   //   success_message: 'Deleted all'
   // });
 });
+
+app.post('/user/addUserStatistics/:uid', async (req, res, next) => {
+  const uid = req.params.uid;
+  const { userProfileStatistics } = req.body;
+  console.log(uid)
+
+  console.log("Tt")
+  console.log(userProfileStatistics);
+  try {
+    await client.HSET('users', uid, userProfileStatistics);
+    res.send(200);
+  } catch (err) {
+    next(err);
+  }
+})
+
+app.get('/user/getUserStatistics/:uid', async (req, res, next) => {
+  const uid = req.params.uid;
+  try {
+    const stats = await client.HGET('users', uid);
+    res.status(200);
+    res.send(stats);
+  } catch (err) {
+    next(err);
+  }
+})
 
 app.listen(3000, async () => {
   console.log("server is running");
