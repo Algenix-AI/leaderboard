@@ -15,8 +15,7 @@
 # sudo ufw allow http
 # cd /etc/ufw
 # sudo nano before.rules
-# sudo ln -s ./leaderboard/leaderboard.service /lib/systemd/system/leaderboard.service
-#*nat
+# *nat
 #:PREROUTING ACCEPT [0:0]
 #-A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000
 #COMMIT

@@ -15,7 +15,8 @@ const getRank = async (exercise, uid) => (await client.ZREVRANK(exercise, uid)) 
 
 const client = redis.createClient({
   socket: {
-    host: 'clustercfg.pushups.8yggea.memorydb.ap-southeast-1.amazonaws.com',
+    host: process.env.NODE_ENV === 'production' ? 'clustercfg.prod.8yggea.memorydb.ap-southeast-1.amazonaws.com'
+                                                : 'clustercfg.pushups.8yggea.memorydb.ap-southeast-1.amazonaws.com',
     port: '6379',
     tls: true
   },
@@ -27,31 +28,32 @@ client.on('error', (err) => console.log('Redis Client Error', err));
 // if number of results and page number not specified, we have defaults
 app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res, next) => {
   const exercise = req.params.exercise;
-  const numberOfResults = req.params.numberOfResults || 0;
-  const pageNumber = req.params.pageNumber || 0;
-  let start, end;
-  if (numberOfResults === 0) { // return first 10
-    start = 0;
-    end = 9;
-  } else {
-    start = pageNumber * numberOfResults;
-    end = start + numberOfResults;
-  }
+  const numberOfResults = Number(req.params.numberOfResults) || 10;
+  const pageNumber = Number(req.params.pageNumber) || 0;
+  const start = pageNumber * numberOfResults;
+  const end = start + numberOfResults;
   try {
-    const leaderboard = await client.ZRANGE_WITHSCORES(exercise, start, end, { REV: true });
-    const rankings = await Promise.all(leaderboard.map(async (object) => {
+    const leaderboard = await client.ZRANGE_WITHSCORES(exercise, start, end - 1, { REV: true });
+    const oldValues = {oldResults: -1, rankForOldResults: 0};
+    const rankings = [];
+    for (let i = 0; i < leaderboard.length; i++) {
+      const object = leaderboard[i];
       const profileData = await client.json.get(object.value, {
         path: ['.nickname', '.photoURL']
       });
-      return {
+      const results = object.score.toFixed(1);
+      const rank = object.score === Number(oldValues.oldResults) ? oldValues.rankForOldResults : (await getRank(exercise, object.value));
+      oldValues.oldResults = Number(results);
+      oldValues.rankForOldResults = Number(rank);
+      rankings.push({
         uid: object.value,
-        results: object.score.toFixed(1),
-        rank: await getRank(exercise, object.value),
+        results,
+        rank,
         nickname: profileData['.nickname'],
-        photoURL: profileData['.photoURL']
-      }
-    }))
-    res.send(rankings);
+        photoURL: profileData['.photoURL'],
+      });
+    }
+    res.send({rankings, totalNumberOfElements: await client.ZCARD(exercise)});
   } catch (err) {
     next(err);
   }
@@ -136,6 +138,15 @@ app.get('/:exercise/addRandomUsers', async (req, res, next) => {
       const uid = nanoid();
       const results = Math.floor(Math.random() * 100);
       arr.push({ score: results, value: uid });
+      await client.json.set(uid, '$', {
+        nickname: uid,
+        age: '21',
+        weight: '80',
+        height: '180',
+        gender: '0',
+        anonymous: true,
+        totalCal: 20,
+        photoURL: ''});
     }
     await client.ZADD(exercise, arr);
     res.sendStatus(200);
