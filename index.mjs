@@ -39,7 +39,7 @@ app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res
     for (let i = 0; i < leaderboard.length; i++) {
       const object = leaderboard[i];
       const profileData = await client.json.get(object.value, {
-        path: ['.nickname', '.photoURL']
+        path: ['.nickname', '.photoURL', '.anonymous']
       });
       const results = object.score.toFixed(1);
       const rank = object.score === Number(oldValues.oldResults) ? oldValues.rankForOldResults : (await getRank(exercise, object.value));
@@ -49,7 +49,7 @@ app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res
         uid: object.value,
         results,
         rank,
-        nickname: profileData['.nickname'],
+        nickname: profileData['.anonymous'] ? object.value : profileData['.nickname'],
         photoURL: profileData['.photoURL'],
       });
     }
@@ -139,12 +139,12 @@ app.get('/:exercise/addRandomUsers', async (req, res, next) => {
       const results = Math.floor(Math.random() * 100);
       arr.push({ score: results, value: uid });
       await client.json.set(uid, '$', {
-        nickname: uid,
+        nickname: 'Krab',
         age: '21',
         weight: '80',
         height: '180',
         gender: '0',
-        anonymous: true,
+        anonymous: Math.random() > 0.5,
         totalCal: 20,
         photoURL: ''});
     }
