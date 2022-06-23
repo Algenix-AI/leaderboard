@@ -14,6 +14,7 @@
 # sudo ufw allow 3000/tcp
 # sudo ufw allow ssh
 # sudo ufw allow http
+# sudo ufw allow https
 # cd /etc/ufw
 # sudo nano before.rules
 # *nat

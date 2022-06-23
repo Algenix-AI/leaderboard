@@ -5,7 +5,7 @@ import { randomName } from "./anonNameGen.js";
 
 const app = express();
 app.use(express.json());
-const allowedOrigins = process.env.NODE_ENV === 'production' ? [/https:\/\/form-for-average-joe.firebaseapp.com/, /https:\/\/form-for-average-joe.web.app/, /https:\/\/form-for-average-joe--staging-5vntiehb.web.app/, /https:\/\/form-for-average-joe--test-nptjlot4.web.app/] : [/http:\/\/localhost/];
+const allowedOrigins = process.env.NODE_ENV === 'production' ? [/https:\/\/form-for-average-joe.firebaseapp.com/, /https:\/\/form-for-average-joe.web.app/, /https:\/\/form-for-average-joe--staging-5vntiehb.web.app/, /https:\/\/form-for-average-joe--test-nptjlot4.web.app/] : [/.*/];
 app.use(function (req, res, next) {
   const origin = req.headers.origin;
   if (allowedOrigins.some(x => x.test(origin))) {
@@ -231,7 +231,7 @@ app.get('/user/getUserPhotoURL/:uid', async (req, res, next) => {
   }
 })
 
-app.get('/.well-known/pki-validation/C02178A9F2665BD2842B1B6D78D93B2F.txt', function (req, res, next) {
+app.get('/.well-known/pki-validation/80D05B57471BE69E698D8AB8A24589D0.txt', function (req, res, next) {
   var options = {
     root: '/home/ubuntu/leaderboard',
     dotfiles: 'allow',
@@ -241,7 +241,7 @@ app.get('/.well-known/pki-validation/C02178A9F2665BD2842B1B6D78D93B2F.txt', func
     }
   }
 
-  var fileName = 'C02178A9F2665BD2842B1B6D78D93B2F.txt'
+  var fileName = '80D05B57471BE69E698D8AB8A24589D0.txt'
   res.sendFile(fileName, options, function (err) {
     if (err) {
       next(err)
