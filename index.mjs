@@ -5,9 +5,12 @@ import { randomName } from "./anonNameGen.js";
 
 const app = express();
 app.use(express.json());
-//todo fix CORS policy, currently wildcarded for testing
+const allowedOrigins = process.env.NODE_ENV === 'production' ? [/https:\/\/form-for-average-joe.firebaseapp.com/, /https:\/\/form-for-average-joe.web.app/, /https:\/\/form-for-average-joe--staging-5vntiehb.web.app/, /https:\/\/form-for-average-joe--test-nptjlot4.web.app/] : [/http:\/\/localhost/];
 app.use(function (req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin;
+  if (allowedOrigins.some(x => x.test(origin))) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
   next();
 });
