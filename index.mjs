@@ -231,6 +231,27 @@ app.get('/user/getUserPhotoURL/:uid', async (req, res, next) => {
   }
 })
 
+app.get('/.well-known/pki-validation/C02178A9F2665BD2842B1B6D78D93B2F.txt', function (req, res, next) {
+  var options = {
+    root: '/home/ubuntu/leaderboard',
+    dotfiles: 'allow',
+    headers: {
+      'x-timestamp': Date.now(),
+      'x-sent': true
+    }
+  }
+
+  var fileName = 'C02178A9F2665BD2842B1B6D78D93B2F.txt'
+  res.sendFile(fileName, options, function (err) {
+    if (err) {
+      next(err)
+    } else {
+      console.log('Sent:', fileName)
+    }
+  })
+});
+
+
 app.listen(3000, async () => {
   console.log("server is running");
   await client.connect();
