@@ -28,11 +28,11 @@ client.on('error', (err) => console.log('Redis Client Error', err));
 
 const getLeaderboardDisplayProfileData = async (uid) => {
   const profileData = await client.json.get(uid, {
-    path: ['.nickname', '.photoURL', '.anonymous']
+    path: ['.nickname', '.photoURL', '.anonymous', '.anonymousName']
   });
   return {
-    nickname: profileData['.anonymous'] ? randomName() : profileData['.nickname'],
-    photoURL: profileData['.photoURL'],
+    nickname: profileData['.anonymous'] ? profileData['.anonymousName'] : profileData['.nickname'],
+    photoURL: profileData['.anonymous'] ? '' : profileData['.photoURL'],
   }
 }
 
@@ -156,7 +156,8 @@ app.get('/:exercise/addRandomUsers', async (req, res, next) => {
         gender: '0',
         anonymous: Math.random() > 0.5,
         totalCal: 20,
-        photoURL: ''});
+        photoURL: '',
+        anonymousName: randomName()});
     }
     await client.ZADD(exercise, arr);
     res.sendStatus(200);
@@ -185,7 +186,18 @@ app.post('/user/addUserStatistics/:uid', async (req, res, next) => {
   const uid = req.params.uid;
   const { userProfileStatistics } = req.body;
   try {
-    await client.json.set(uid, '$', userProfileStatistics);
+    await client.json.set(uid, '$', {...userProfileStatistics, anonymousName: randomName()});
+    res.sendStatus(200);
+  } catch (err) {
+    next(err);
+  }
+})
+
+// couldn't use curl to POST JSON, so this random endpoint was created
+app.get('/user/addCustomUser/', async (req, res, next) => {
+  const stats = {"nickname":"Grass Algae","age":2,"weight":3,"height":3,"gender":"0","anonymous":false,"totalCal":2600,"photoURL":null}
+  try {
+    await client.json.set('XMugbNfdE7DZbp9i20IMoDl2981A', '$', {...stats, anonymousName: randomName()});
     res.sendStatus(200);
   } catch (err) {
     next(err);
