@@ -1,6 +1,7 @@
 import redis from "redis";
 import express from "express";
 import { nanoid } from "nanoid/non-secure";
+import { randomName } from "./anonNameGen.js";
 
 const app = express();
 app.use(express.json());
@@ -25,6 +26,16 @@ const client = redis.createClient({
 
 client.on('error', (err) => console.log('Redis Client Error', err));
 
+const getLeaderboardDisplayProfileData = async (uid) => {
+  const profileData = await client.json.get(uid, {
+    path: ['.nickname', '.photoURL', '.anonymous']
+  });
+  return {
+    nickname: profileData['.anonymous'] ? randomName() : profileData['.nickname'],
+    photoURL: profileData['.photoURL'],
+  }
+}
+
 // if number of results and page number not specified, we have defaults
 app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res, next) => {
   const exercise = req.params.exercise;
@@ -38,9 +49,7 @@ app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res
     const rankings = [];
     for (let i = 0; i < leaderboard.length; i++) {
       const object = leaderboard[i];
-      const profileData = await client.json.get(object.value, {
-        path: ['.nickname', '.photoURL', '.anonymous']
-      });
+      const profileData = getLeaderboardDisplayProfileData(object.value);
       const results = object.score.toFixed(1);
       const rank = object.score === Number(oldValues.oldResults) ? oldValues.rankForOldResults : (await getRank(exercise, object.value));
       oldValues.oldResults = Number(results);
@@ -49,8 +58,7 @@ app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res
         uid: object.value,
         results,
         rank,
-        nickname: profileData['.anonymous'] ? object.value : profileData['.nickname'],
-        photoURL: profileData['.photoURL'],
+        ...(await profileData)
       });
     }
     res.send({rankings, totalNumberOfElements: await client.ZCARD(exercise)});
@@ -117,11 +125,13 @@ app.get('/:exercise/user/:uid', async (req, res, next) => {
   try {
     const exercise = req.params.exercise;
     const uid = req.params.uid;
-    const score = client.ZSCORE(exercise, uid);
+    const results = client.ZSCORE(exercise, uid);
     const rank = getRank(exercise, uid);
     res.status(200);
     res.send({
-      score: await score,
+      uid,
+      ...(await getLeaderboardDisplayProfileData(uid)),
+      results: (await results).toFixed(1),
       rank: await rank
     });
   } catch (err) {
