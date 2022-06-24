@@ -5,6 +5,7 @@ import { randomName } from "./anonNameGen.js";
 import https from 'https';
 import fs from 'fs';
 
+//todo add 404s, if user does not exist or if rank/score do not exist
 const app = express();
 app.use(express.json());
 const allowedOrigins = process.env.NODE_ENV === 'production' ? [/https:\/\/form-for-average-joe.firebaseapp.com/, /https:\/\/form-for-average-joe.web.app/, /https:\/\/form-for-average-joe--staging-5vntiehb.web.app/, /https:\/\/form-for-average-joe--test-nptjlot4.web.app/] : [/.*/];
@@ -35,15 +36,17 @@ const getLeaderboardDisplayProfileData = async (uid) => {
   const profileData = await client.json.get(uid, {
     path: ['.nickname', '.photoURL', '.anonymous', '.anonymousName']
   });
+  if (!profileData) return {};
   return {
     nickname: profileData['.anonymous'] ? profileData['.anonymousName'] : profileData['.nickname'],
     photoURL: profileData['.anonymous'] ? '' : profileData['.photoURL'],
-  }
+  };
 }
 
 // if number of results and page number not specified, we have defaults
-app.get('/:exercise/leaderboard/:numberOfResults?/:pageNumber?', async (req, res, next) => {
+app.get('/:exercise/leaderboard/:leaderboardId/:numberOfResults?/:pageNumber?', async (req, res, next) => {
   const exercise = req.params.exercise;
+  const leaderboardId = req.params.leaderboardId || 'global';
   const numberOfResults = Number(req.params.numberOfResults) || 10;
   const pageNumber = Number(req.params.pageNumber) || 0;
   const start = pageNumber * numberOfResults;
@@ -130,15 +133,20 @@ app.get('/:exercise/user/:uid', async (req, res, next) => {
   try {
     const exercise = req.params.exercise;
     const uid = req.params.uid;
-    const results = client.ZSCORE(exercise, uid);
-    const rank = getRank(exercise, uid);
-    res.status(200);
-    res.send({
-      uid,
-      ...(await getLeaderboardDisplayProfileData(uid)),
-      results: (await results).toFixed(1),
-      rank: await rank
-    });
+    const results = await client.ZSCORE(exercise, uid);
+    const rank = await getRank(exercise, uid);
+    if (results === null || rank === null) {
+      res.status(404).send("No such user");
+    }
+    else {
+      res.status(200);
+      res.send({
+        uid,
+        ...(await getLeaderboardDisplayProfileData(uid)),
+        results: (results).toFixed(1),
+        rank
+      });
+    }
   } catch (err) {
     next(err);
   }
