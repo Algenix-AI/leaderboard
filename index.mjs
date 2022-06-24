@@ -2,6 +2,8 @@ import redis from "redis";
 import express from "express";
 import { nanoid } from "nanoid/non-secure";
 import { randomName } from "./anonNameGen.js";
+import https from 'https';
+import fs from 'fs';
 
 const app = express();
 app.use(express.json());
@@ -251,9 +253,13 @@ app.get('/.well-known/pki-validation/80D05B57471BE69E698D8AB8A24589D0.txt', func
   })
 });
 
-
-app.listen(3000, async () => {
-  console.log("server is running");
-  await client.connect();
-  console.log(await client.ping());
-});
+https
+  .createServer({
+    key: fs.readFileSync("/home/ubuntu/leaderboard/custom.key"),
+    cert: fs.readFileSync("/home/ubuntu/leaderboard/certificate.crt")
+  }, app)
+  .listen(3000, async ()=>{
+    console.log('server is running');
+    await client.connect();
+    console.log(await client.ping());
+  });
