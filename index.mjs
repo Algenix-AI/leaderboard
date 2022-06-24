@@ -46,7 +46,7 @@ const getLeaderboardDisplayProfileData = async (uid) => {
 // if number of results and page number not specified, we have defaults
 app.get('/:exercise/leaderboard/:leaderboardId/:numberOfResults?/:pageNumber?', async (req, res, next) => {
   const exercise = req.params.exercise;
-  const leaderboardId = req.params.leaderboardId || 'global';
+  const leaderboardId = req.params.leaderboardId;
   const numberOfResults = Number(req.params.numberOfResults) || 10;
   const pageNumber = Number(req.params.pageNumber) || 0;
   const start = pageNumber * numberOfResults;
@@ -168,7 +168,6 @@ app.get('/:exercise/addRandomUsers', async (req, res, next) => {
         height: '180',
         gender: '0',
         anonymous: Math.random() > 0.5,
-        totalCal: 20,
         photoURL: '',
         anonymousName: randomName()});
     }
@@ -208,10 +207,22 @@ app.post('/user/addUserStatistics/:uid', async (req, res, next) => {
 
 // couldn't use curl to POST JSON, so this random endpoint was created
 app.get('/user/addCustomUser/', async (req, res, next) => {
-  const stats = {"nickname":"Grass Algae","age":2,"weight":3,"height":3,"gender":"0","anonymous":false,"totalCal":2600,"photoURL":null}
+  const stats = {"nickname":"Grass Algae","age":2,"weight":3,"height":3,"gender":"0","anonymous":false,"photoURL":null}
   try {
     await client.json.set('XMugbNfdE7DZbp9i20IMoDl2981A', '$', {...stats, anonymousName: randomName()});
     res.sendStatus(200);
+  } catch (err) {
+    next(err);
+  }
+})
+
+app.get('/user/getUserCumulative/:exercise/:uid', async (req, res, next) => {
+  const uid = req.params.uid;
+  const exercise = req.params.exercise;
+  try {
+    const score = await client.ZSCORE(exercise, uid);
+    const rank = await getRank(exercise, uid);
+    res.send({ score, rank });
   } catch (err) {
     next(err);
   }
