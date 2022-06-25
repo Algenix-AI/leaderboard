@@ -79,13 +79,26 @@ app.get('/isKeyPresent/:key', async (req, res, next) => {
 
 app.get('/deleteKey/:key', async (req, res, next) => {
   try {
-   const key = req.params.key;
-   await client.DEL(key);
+    const key = req.params.key;
+    await client.DEL(key);
     // then test api cases
   } catch (err) {
     next(err);
   }
   res.sendStatus(200);
+})
+
+app.get('/getLeaderboardName/:groupCode', async (req, res, next) => {
+  const groupCode = req.params.groupCode;
+  try {
+    res.send({
+      leaderboardName: await client.json.get(groupCode, {
+        path: ['.leaderboardName']
+      })
+    })
+  } catch (err) {
+    next(err);
+  }
 })
 
 app.put('/addGroupCodeToUser/:groupCode/:uid', async (req, res, next) => {
@@ -119,29 +132,46 @@ app.get('/allKeys', async (req, res) => {
   res.send(await client.KEYS('*'));
 })
 
-async function generatePrivateLeaderboard(exercise) {
-  const leaderboard = await client.ZRANGE_WITHSCORES(exercise, start, end - 1, { REV: true });
-  const oldValues = { oldResults: -1, rankForOldResults: 0 };
+async function generatePrivateLeaderboard(exercise, start, end, leaderboardId) {
+  const userUids = await client.json.get(leaderboardId, {
+    path: ['.userUids']
+  });
+  const leaderboardScores = await client.ZMSCORE(exercise, userUids);
+  const keys = Array.from(leaderboardScores.keys())
+    .sort( (a,b) => {
+      if (leaderboardScores[a] === null) {
+        return 1
+      }
+      else if (leaderboardScores[b] === null) {
+        return -1
+      }
+      else {
+        return leaderboardScores[b] - leaderboardScores[a];
+      }});
+  const sortedLeaderboardScores = keys.map(i => leaderboardScores[i]);
+  const sortedLeaderboardUids = keys.map(i => userUids[i]);
+  const totalNumberOfElements = keys.length;
   const rankings = [];
-  for (let i = 0; i < leaderboard.length; i++) {
-    const object = leaderboard[i];
-    const profileData = getLeaderboardDisplayProfileData(object.value);
-    const results = object.score.toFixed(1);
-    const rank = object.score === Number(oldValues.oldResults) ? oldValues.rankForOldResults : (await getRank(exercise, object.value));
+  const oldValues = { oldResults: -1, rankForOldResults: 0 };
+  for (let i = start; i <= Math.min(end, totalNumberOfElements - 1); i++) {
+    const profileData = getLeaderboardDisplayProfileData(sortedLeaderboardUids[i]);
+    const checkScoreForNull = sortedLeaderboardScores[i] || 0;
+    const results = checkScoreForNull.toFixed(1);
+    const rank = checkScoreForNull === Number(oldValues.oldResults) ? oldValues.rankForOldResults : i + 1;
     oldValues.oldResults = Number(results);
     oldValues.rankForOldResults = Number(rank);
     rankings.push({
-      uid: object.value,
+      uid: sortedLeaderboardUids[i],
       results,
       rank,
       ...(await profileData)
     });
   }
-  return { rankings, totalNumberOfElements: await client.ZCARD(exercise) };
+  return { rankings, totalNumberOfElements };
 }
 
 async function generateGlobalLeaderboard(exercise, start, end) {
-  const leaderboard = await client.ZRANGE_WITHSCORES(exercise, start, end - 1, { REV: true });
+  const leaderboard = await client.ZRANGE_WITHSCORES(exercise, start, end, { REV: true });
   const oldValues = { oldResults: -1, rankForOldResults: 0 };
   const rankings = [];
   for (let i = 0; i < leaderboard.length; i++) {
@@ -168,12 +198,12 @@ app.get('/:exercise/leaderboard/:leaderboardId/:numberOfResults?/:pageNumber?', 
   const numberOfResults = Number(req.params.numberOfResults) || 10;
   const pageNumber = Number(req.params.pageNumber) || 0;
   const start = pageNumber * numberOfResults;
-  const end = start + numberOfResults;
+  const end = (start + numberOfResults) - 1;
   try {
     if (leaderboardId === 'global') {
       res.send(await generateGlobalLeaderboard(exercise, start, end));
     } else {
-      res.send(await generatePrivateLeaderboard(exercise, start, end));
+      res.send(await generatePrivateLeaderboard(exercise, start, end, leaderboardId));
     }
   } catch (err) {
     next(err);
