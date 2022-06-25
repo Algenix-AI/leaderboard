@@ -77,17 +77,47 @@ app.get('/isKeyPresent/:key', async (req, res, next) => {
   }
 });
 
+app.get('/deleteKey/:key', async (req, res, next) => {
+  try {
+   const key = req.params.key;
+   await client.DEL(key);
+    // then test api cases
+  } catch (err) {
+    next(err);
+  }
+  res.sendStatus(200);
+})
+
 app.put('/addGroupCodeToUser/:groupCode/:uid', async (req, res, next) => {
   try {
     const groupCode = req.params.groupCode;
     const uid = req.params.uid;
-    await client.SADD(groupCode, uid);
-    res.status(200);
-    res.send({data: await client.SMEMBERS(groupCode)})
+    const { leaderboardName } = req.body;
+    const uidsLength = await client.json.ARRLEN(groupCode, '$.userUids');
+    const newArray = [uid];
+    if (uidsLength > 0) {
+      const existingCodes = await client.json.get(groupCode, {
+        path: ['.userUids']
+      });
+      if (!(existingCodes.includes(uid))) {
+        await client.json.set(groupCode, '$.userUids', existingCodes.concat(newArray));
+      }
+      // else do nothing, uid is already in the array
+    } else {
+      await client.json.set(groupCode, '$', {
+        userUids: newArray,
+        leaderboardName
+      });
+    }
+    res.sendStatus(200);
   } catch (err) {
     next(err);
   }
 });
+
+app.get('/allKeys', async (req, res) => {
+  res.send(await client.KEYS('*'));
+})
 
 async function generatePrivateLeaderboard(exercise) {
   const leaderboard = await client.ZRANGE_WITHSCORES(exercise, start, end - 1, { REV: true });
