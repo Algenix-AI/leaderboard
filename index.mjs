@@ -33,14 +33,14 @@ const client = redis.createClient({
 
 client.on('error', (err) => console.log('Redis Client Error', err));
 
-const getLeaderboardDisplayProfileData = async (uid) => {
+const getLeaderboardDisplayProfileData = async (uid, isAnonymousRequired) => {
   const profileData = await client.json.get(uid, {
     path: ['.nickname', '.photoURL', '.anonymous', '.anonymousName']
   });
   if (!profileData) return {};
   return {
-    nickname: profileData['.anonymous'] ? profileData['.anonymousName'] : profileData['.nickname'],
-    photoURL: profileData['.anonymous'] ? '' : profileData['.photoURL'],
+    nickname: isAnonymousRequired && profileData['.anonymous'] ? profileData['.anonymousName'] : profileData['.nickname'],
+    photoURL: isAnonymousRequired && profileData['.anonymous'] ? '' : profileData['.photoURL'],
   };
 }
 
@@ -154,7 +154,7 @@ async function generatePrivateLeaderboard(exercise, start, end, leaderboardId) {
   const rankings = [];
   const oldValues = { oldResults: -1, rankForOldResults: 0 };
   for (let i = start; i <= Math.min(end, totalNumberOfElements - 1); i++) {
-    const profileData = getLeaderboardDisplayProfileData(sortedLeaderboardUids[i]);
+    const profileData = getLeaderboardDisplayProfileData(sortedLeaderboardUids[i], false);
     const checkScoreForNull = sortedLeaderboardScores[i] || 0;
     const results = checkScoreForNull.toFixed(1);
     const rank = checkScoreForNull === Number(oldValues.oldResults) ? oldValues.rankForOldResults : i + 1;
@@ -176,7 +176,7 @@ async function generateGlobalLeaderboard(exercise, start, end) {
   const rankings = [];
   for (let i = 0; i < leaderboard.length; i++) {
     const object = leaderboard[i];
-    const profileData = getLeaderboardDisplayProfileData(object.value);
+    const profileData = getLeaderboardDisplayProfileData(object.value, true);
     const results = object.score.toFixed(1);
     const rank = object.score === Number(oldValues.oldResults) ? oldValues.rankForOldResults : (await getRank(exercise, object.value));
     oldValues.oldResults = Number(results);
