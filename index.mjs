@@ -41,6 +41,7 @@ const getLeaderboardDisplayProfileData = async (uid, isAnonymousRequired) => {
   return {
     nickname: isAnonymousRequired && profileData['.anonymous'] ? profileData['.anonymousName'] : profileData['.nickname'],
     photoURL: isAnonymousRequired && profileData['.anonymous'] ? '' : profileData['.photoURL'],
+    isAnonymous: profileData['.anonymous']
   };
 }
 
@@ -291,12 +292,12 @@ app.get('/:exercise/addRandomUsers', async (req, res, next) => {
   try {
     const exercise = req.params.exercise;
     const arr = [];
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 15; i++) {
       const uid = nanoid();
       const results = Math.floor(Math.random() * 100);
       arr.push({ score: results, value: uid });
       await client.json.set(uid, '$', {
-        nickname: 'Krab',
+        nickname: 'Random User #' + i,
         age: '21',
         weight: '80',
         height: '180',
@@ -328,6 +329,16 @@ app.delete('/:exercise/deleteAllUsers', async (req, res) => {
     });
   }
 });
+
+app.get('/deleteAllItemsUnsafe', async (req, res, next) => {
+  try {
+    const allKeys = await client.KEYS('*');
+    const x = await client.DEL(allKeys[0]);
+    res.sendStatus(200);
+  } catch (err) {
+    next(err);
+  }
+})
 
 app.post('/user/addUserStatistics/:uid', async (req, res, next) => {
   const uid = req.params.uid;
