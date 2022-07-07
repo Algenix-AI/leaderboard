@@ -277,7 +277,7 @@ app.get('/:exercise/user/:uid', async (req, res, next) => {
       res.status(200);
       res.send({
         uid,
-        ...(await getLeaderboardDisplayProfileData(uid)),
+        ...(await getLeaderboardDisplayProfileData(uid, true)),
         results: (results).toFixed(1),
         rank
       });
