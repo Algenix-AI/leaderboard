@@ -133,27 +133,40 @@ app.get('/allKeys', async (req, res) => {
   res.send(await client.KEYS('*'));
 })
 
-async function generatePrivateLeaderboard(exercise, start, end, leaderboardId) {
+const getCurrentUserProfileDataPrivateLeaderboard = async (uid, results, rank) => {
+  if (results === null || rank === null) {
+    return null;
+  } else {
+    return {
+      uid,
+      ...(await getLeaderboardDisplayProfileData(uid, true)),
+      results,
+      rank
+    };
+  }
+}
+
+async function generatePrivateLeaderboard(exercise, start, end, leaderboardId, uid) {
   const userUids = await client.json.get(leaderboardId, {
     path: ['.userUids']
   });
   const leaderboardScores = await client.ZMSCORE(exercise, userUids);
   const keys = Array.from(leaderboardScores.keys())
-    .sort( (a,b) => {
+    .sort((a, b) => {
       if (leaderboardScores[a] === null) {
         return 1
-      }
-      else if (leaderboardScores[b] === null) {
+      } else if (leaderboardScores[b] === null) {
         return -1
-      }
-      else {
+      } else {
         return leaderboardScores[b] - leaderboardScores[a];
-      }});
+      }
+    });
   const sortedLeaderboardScores = keys.map(i => leaderboardScores[i]);
   const sortedLeaderboardUids = keys.map(i => userUids[i]);
   const totalNumberOfElements = keys.length;
   const rankings = [];
   const oldValues = { oldResults: -1, rankForOldResults: 0 };
+  let currentUserData;
   for (let i = start; i <= Math.min(end, totalNumberOfElements - 1); i++) {
     const profileData = getLeaderboardDisplayProfileData(sortedLeaderboardUids[i], false);
     const checkScoreForNull = sortedLeaderboardScores[i] || 0;
@@ -161,6 +174,9 @@ async function generatePrivateLeaderboard(exercise, start, end, leaderboardId) {
     const rank = checkScoreForNull === Number(oldValues.oldResults) ? oldValues.rankForOldResults : i + 1;
     oldValues.oldResults = Number(results);
     oldValues.rankForOldResults = Number(rank);
+    if (sortedLeaderboardUids[i] === uid) {
+      currentUserData = getCurrentUserProfileDataPrivateLeaderboard(uid, results, rank)
+    }
     rankings.push({
       uid: sortedLeaderboardUids[i],
       results,
@@ -168,13 +184,29 @@ async function generatePrivateLeaderboard(exercise, start, end, leaderboardId) {
       ...(await profileData)
     });
   }
-  return { rankings, totalNumberOfElements };
+  return { rankings, totalNumberOfElements, currentUserData: await currentUserData };
 }
 
-async function generateGlobalLeaderboard(exercise, start, end) {
+const getCurrentUserProfileDataGlobalLeaderboard = async (exercise, uid) => {
+  const results = await client.ZSCORE(exercise, uid);
+  const rank = await getRank(exercise, uid);
+  if (results === null || rank === null) {
+    return null;
+  } else {
+    return {
+      uid,
+      ...(await getLeaderboardDisplayProfileData(uid, true)),
+      results,
+      rank
+    };
+  }
+}
+
+async function generateGlobalLeaderboard(exercise, start, end, uid) {
   const leaderboard = await client.ZRANGE_WITHSCORES(exercise, start, end, { REV: true });
   const oldValues = { oldResults: -1, rankForOldResults: 0 };
   const rankings = [];
+  const currentUserData = getCurrentUserProfileDataGlobalLeaderboard(exercise, uid);
   for (let i = 0; i < leaderboard.length; i++) {
     const object = leaderboard[i];
     const profileData = getLeaderboardDisplayProfileData(object.value, true);
@@ -189,22 +221,23 @@ async function generateGlobalLeaderboard(exercise, start, end) {
       ...(await profileData)
     });
   }
-  return { rankings, totalNumberOfElements: await client.ZCARD(exercise) };
+  return { rankings, totalNumberOfElements: await client.ZCARD(exercise), currentUserData: await currentUserData };
 }
 
 // if number of results and page number not specified, we have defaults
-app.get('/:exercise/leaderboard/:leaderboardId/:numberOfResults?/:pageNumber?', async (req, res, next) => {
+app.get('/:exercise/leaderboard/:leaderboardId/:numberOfResults?/:pageNumber?/:uid', async (req, res, next) => {
   const exercise = req.params.exercise;
   const leaderboardId = req.params.leaderboardId;
   const numberOfResults = Number(req.params.numberOfResults) || 10;
   const pageNumber = Number(req.params.pageNumber) || 0;
+  const uid = req.params.uid;
   const start = pageNumber * numberOfResults;
   const end = (start + numberOfResults) - 1;
   try {
     if (leaderboardId === 'global') {
-      res.send(await generateGlobalLeaderboard(exercise, start, end));
+      res.send(await generateGlobalLeaderboard(exercise, start, end, uid));
     } else {
-      res.send(await generatePrivateLeaderboard(exercise, start, end, leaderboardId));
+      res.send(await generatePrivateLeaderboard(exercise, start, end, leaderboardId, uid));
     }
   } catch (err) {
     next(err);
@@ -262,29 +295,6 @@ app.delete('/:exercise/deleteUser/:uid', async (req, res) => {
   res.json({
     success_message: 'Deleted ' + uid
   });
-});
-
-//get the user's exercise stats
-app.get('/:exercise/user/:uid', async (req, res, next) => {
-  try {
-    const exercise = req.params.exercise;
-    const uid = req.params.uid;
-    const results = await client.ZSCORE(exercise, uid);
-    const rank = await getRank(exercise, uid);
-    if (results === null || rank === null) {
-      res.status(404).send("No such user");
-    } else {
-      res.status(200);
-      res.send({
-        uid,
-        ...(await getLeaderboardDisplayProfileData(uid, true)),
-        results: (results).toFixed(1),
-        rank
-      });
-    }
-  } catch (err) {
-    next(err);
-  }
 });
 
 //populate the leaderboard randomly
