@@ -2,7 +2,6 @@ import express from "express";
 import fs from 'fs';
 import https from 'https';
 import { nanoid } from "nanoid/non-secure";
-import { randomName } from "./anonNameGen.js";
 import authenticatedRoutes from "./authenticatedRoutes.mjs";
 import client from "./client.mjs";
 
@@ -44,27 +43,6 @@ const getLeaderboardDisplayProfileData = async (uid, isAnonymityRequired) => {
   };
 }
 
-app.post('/addToLeaderboard/:leaderboardId/:uid', async (req, res, next) => {
-  try {
-    const exercise = req.params.exercise;
-    const { uid, scoreOfLatest } = req.body;
-    const updatedScore = await client.ZINCRBY(exercise, parseFloat(scoreOfLatest), uid);
-    // const rank = await getRank(uid);
-    // const points = await client.HGET(uid, "points");
-    res.status(200);
-    res.setHeader('Content-Type', 'application/json');
-    res.json({
-      // rank,
-      updatedScore,
-      uid,
-      // cumulativeScore,
-      // points,
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
 app.get('/isKeyPresent/:key', async (req, res, next) => {
   try {
     const key = req.params.key;
@@ -76,61 +54,6 @@ app.get('/isKeyPresent/:key', async (req, res, next) => {
     next(err);
   }
 });
-
-app.get('/deleteKey/:key', async (req, res, next) => {
-  try {
-    const key = req.params.key;
-    await client.DEL(key);
-    // then test api cases
-  } catch (err) {
-    next(err);
-  }
-  res.sendStatus(200);
-})
-
-app.get('/getLeaderboardName/:groupCode', async (req, res, next) => {
-  const groupCode = req.params.groupCode;
-  try {
-    res.send({
-      leaderboardName: await client.json.get(groupCode, {
-        path: ['.leaderboardName']
-      })
-    })
-  } catch (err) {
-    next(err);
-  }
-})
-
-app.put('/addGroupCodeToUser/:groupCode/:uid', async (req, res, next) => {
-  try {
-    const groupCode = req.params.groupCode;
-    const uid = req.params.uid;
-    const { leaderboardName } = req.body;
-    const uidsLength = await client.json.ARRLEN(groupCode, '$.userUids');
-    const newArray = [uid];
-    if (uidsLength > 0) {
-      const existingCodes = await client.json.get(groupCode, {
-        path: ['.userUids']
-      });
-      if (!(existingCodes.includes(uid))) {
-        await client.json.set(groupCode, '$.userUids', existingCodes.concat(newArray));
-      }
-      // else do nothing, uid is already in the array
-    } else {
-      await client.json.set(groupCode, '$', {
-        userUids: newArray,
-        leaderboardName
-      });
-    }
-    res.sendStatus(200);
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get('/allKeys', async (req, res) => {
-  res.send(await client.KEYS('*'));
-})
 
 const getCurrentUserProfileDataPrivateLeaderboard = async (uid, results, rank) => {
   if (results === null || rank === null) {
@@ -243,148 +166,12 @@ app.get('/:exercise/leaderboard/:leaderboardId/:numberOfResults?/:pageNumber?/:u
   }
 });
 
-//todo make this safer, if client accidentally sends the same request twice
-app.post('/:exercise/addToUserCumulative', async (req, res, next) => {
-  try {
-    const exercise = req.params.exercise;
-    const { uid, scoreOfLatest } = req.body;
-    // await client.HSET(uid, "points", points);
-    const updatedScore = await client.ZINCRBY(exercise, parseFloat(scoreOfLatest), uid);
-    // const rank = await getRank(uid);
-    // const points = await client.HGET(uid, "points");
-
-    res.status(200);
-    res.setHeader('Content-Type', 'application/json');
-    res.json({
-      // rank,
-      updatedScore,
-      uid,
-      // cumulativeScore,
-      // points,
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-//delete the specified user
-app.delete('/:exercise/deleteUser/:uid', async (req, res) => {
-  const uid = req.params.uid;
-  const exercise = req.params.exercise;
-  // try {
-  // await client.HDEL(uid, "points", uid);
-  // } catch (err) {
-  //   res.status(400);
-  //   res.setHeader('Content-Type', 'application/json');
-  //   res.json({
-  //     error_message: "User could not deleted from hash."
-  //   });
-  // }
-  try {
-    await client.ZREM(exercise, uid);
-  } catch (err) {
-    res.status(400);
-    res.setHeader('Content-Type', 'application/json');
-    res.json({
-      error_message: "Unable to delete user id: " + uid
-    });
-  }
-  res.status(200);
-  res.setHeader('Content-Type', 'application/json');
-  res.json({
-    success_message: 'Deleted ' + uid
-  });
-});
-
-//populate the leaderboard randomly
-app.get('/:exercise/addRandomUsers', async (req, res, next) => {
-  try {
-    const exercise = req.params.exercise;
-    const arr = [];
-    for (let i = 0; i < 15; i++) {
-      const uid = nanoid();
-      const results = Math.floor(Math.random() * 100);
-      arr.push({ score: results, value: uid });
-      await client.json.set(uid, '$', {
-        nickname: 'Random User #' + i,
-        age: '21',
-        weight: '80',
-        height: '180',
-        gender: '0',
-        anonymous: Math.random() > 0.5,
-        photoURL: '',
-        anonymousName: randomName()
-      });
-    }
-    await client.ZADD(exercise, arr);
-    res.sendStatus(200);
-  } catch (err) {
-    next(err);
-  }
-});
-
-//todo authenticate this request
-//delete all the users
-app.delete('/:exercise/deleteAllUsers', async (req, res) => {
-  try {
-    const exercise = req.params.exercise;
-    await client.ZREMRANGEBYRANK(exercise, 0, -1);
-    res.sendStatus(200);
-  } catch (err) {
-    res.status(400);
-    res.setHeader('Content-Type', 'application/json');
-    res.json({
-      error_message: "Unable to delete user id: " + uid
-    });
-  }
-});
-
-app.get('/deleteAllItemsUnsafe', async (req, res, next) => {
-  try {
-    // const allKeys = await client.KEYS('*');
-    // const x = await client.DEL(allKeys[0]);
-    res.sendStatus(200);
-  } catch (err) {
-    next(err);
-  }
-})
-
-app.post('/user/addUserStatistics/:uid', async (req, res, next) => {
-  const uid = req.params.uid;
-  const { userProfileStatistics } = req.body;
-  try {
-    await client.json.set(uid, '$', { ...userProfileStatistics, anonymousName: randomName() });
-    res.sendStatus(200);
-  } catch (err) {
-    next(err);
-  }
-})
-
 app.get('/user/getMinorProfileStatistics/:uid', async (req, res, next) => {
   const uid = req.params.uid;
   try {
     const results  = await getCurrentUserProfileDataPrivateLeaderboard(uid, true);
     res.status(200);
     res.send(results);
-  } catch (err) {
-    next(err);
-  }
-})
-
-// couldn't use curl to POST JSON, so this random endpoint was created
-app.get('/user/addCustomUser/', async (req, res, next) => {
-  const stats = {
-    "nickname": "Grass Algae",
-    "age": 2,
-    "weight": 3,
-    "height": 3,
-    "gender": "0",
-    "anonymous": false,
-    "photoURL": null
-  }
-  try {
-    await client.json.set('XMugbNfdE7DZbp9i20IMoDl2981A', '$', { ...stats, anonymousName: randomName() });
-    res.sendStatus(200);
   } catch (err) {
     next(err);
   }
@@ -397,19 +184,6 @@ app.get('/user/getUserCumulative/:exercise/:uid', async (req, res, next) => {
     const score = await client.ZSCORE(exercise, uid);
     const rank = await getRank(exercise, uid);
     res.send({ score, rank });
-  } catch (err) {
-    next(err);
-  }
-})
-
-app.get('/user/getUserPhotoURL/:uid', async (req, res, next) => {
-  const uid = req.params.uid;
-  try {
-    const results = await client.json.get(uid, {
-      path: ['.photoURL']
-    });
-    res.status(200);
-    res.send(results);
   } catch (err) {
     next(err);
   }
@@ -445,3 +219,110 @@ https
     await client.connect();
     console.log(await client.ping());
   });
+
+// couldn't use curl to POST JSON, so this random endpoint was created
+// app.get('/user/addCustomUser/', async (req, res, next) => {
+//   const stats = {
+//     "nickname": "Grass Algae",
+//     "age": 2,
+//     "weight": 3,
+//     "height": 3,
+//     "gender": "0",
+//     "anonymous": false,
+//     "photoURL": null
+//   }
+//   try {
+//     await client.json.set('XMugbNfdE7DZbp9i20IMoDl2981A', '$', { ...stats, anonymousName: randomName() });
+//     res.sendStatus(200);
+//   } catch (err) {
+//     next(err);
+//   }
+// })
+
+// app.get('/deleteAllItemsUnsafe', async (req, res, next) => {
+//   try {
+// const allKeys = await client.KEYS('*');
+// const x = await client.DEL(allKeys[0]);
+//     res.sendStatus(200);
+//   } catch (err) {
+//     next(err);
+//   }
+// })
+
+// app.delete('/:exercise/deleteAllUsers', async (req, res) => {
+//   try {
+//     const exercise = req.params.exercise;
+//     await client.ZREMRANGEBYRANK(exercise, 0, -1);
+//     res.sendStatus(200);
+//   } catch (err) {
+//     res.status(400);
+//     res.setHeader('Content-Type', 'application/json');
+//     res.json({
+//       error_message: "Unable to delete user id: " + uid
+//     });
+//   }
+// });
+
+
+// //delete the specified user
+// app.delete('/:exercise/deleteUser/:uid', async (req, res) => {
+//   const uid = req.params.uid;
+//   const exercise = req.params.exercise;
+//   try {
+//     await client.ZREM(exercise, uid);
+//     //remove the json uid also
+//   } catch (err) {
+//     res.status(400);
+//     res.setHeader('Content-Type', 'application/json');
+//     res.json({
+//       error_message: "Unable to delete user id: " + uid
+//     });
+//   }
+//   res.status(200);
+//   res.setHeader('Content-Type', 'application/json');
+//   res.json({
+//     success_message: 'Deleted ' + uid
+//   });
+// });
+
+// //populate the leaderboard randomly
+// app.get('/:exercise/addRandomUsers', async (req, res, next) => {
+//   try {
+//     const exercise = req.params.exercise;
+//     const arr = [];
+//     for (let i = 0; i < 15; i++) {
+//       const uid = nanoid();
+//       const results = Math.floor(Math.random() * 100);
+//       arr.push({ score: results, value: uid });
+//       await client.json.set(uid, '$', {
+//         nickname: 'Random User #' + i,
+//         age: '21',
+//         weight: '80',
+//         height: '180',
+//         gender: '0',
+//         anonymous: Math.random() > 0.5,
+//         photoURL: '',
+//         anonymousName: randomName()
+//       });
+//     }
+//     await client.ZADD(exercise, arr);
+//     res.sendStatus(200);
+//   } catch (err) {
+//     next(err);
+//   }
+// });
+
+// app.get('/allKeys', async (req, res) => {
+//   res.send(await client.KEYS('*'));
+// })
+
+// app.get('/deleteKey/:key', async (req, res, next) => {
+//   try {
+//     const key = req.params.key;
+//     await client.DEL(key);
+//     // then test api cases
+//   } catch (err) {
+//     next(err);
+//   }
+//   res.sendStatus(200);
+// })
