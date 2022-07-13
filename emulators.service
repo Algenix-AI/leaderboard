@@ -1,0 +1,14 @@
+[Unit]
+Description=The emulators
+Documentation=https://www.google.com
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/wadio
+ExecStart=/home/ubuntu/.nvm/versions/node/v16.15.1/bin/firebase emulators:start --import=/home/ubuntu/wadio/emulator-test --export-on-exit --token 1//0gy8DQRL4Vtv2CgYIARAAGBASNwF-L9IrDN4cFySBXhO2aCqaRiKrS6VJy6WUloKMBiK8WOWBWgWaEUPHEJ-66BFURd5IZFzYhLU
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

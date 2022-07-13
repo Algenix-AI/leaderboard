@@ -6,6 +6,8 @@ import { randomName } from "./anonNameGen.js";
 import authenticatedRoutes from "./authenticatedRoutes.mjs";
 import client from "./client.mjs";
 
+// 1//0gy8DQRL4Vtv2CgYIARAAGBASNwF-L9IrDN4cFySBXhO2aCqaRiKrS6VJy6WUloKMBiK8WOWBWgWaEUPHEJ-66BFURd5IZFzYhLU
+
 // sudo cp /home/ubuntu/leaderboard/leaderboard.service /usr/lib/systemd/system/
 // see commands.sh on how to restart
 

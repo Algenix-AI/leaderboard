@@ -9,18 +9,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gozeloglu/leaderboard-redis.git"
+    "url": "git+https://github.com/Form-For-Average-Joe/leaderboard.git"
   },
   "keywords": [
     "redis",
     "leaderboard"
   ],
-  "author": "Gökhan Özeloğlu",
+  "author": "Parth Gujar",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/gozeloglu/leaderboard-redis/issues"
-  },
-  "homepage": "https://github.com/gozeloglu/leaderboard-redis#readme",
   "dependencies": {
     "express": "^4.18.1",
     "firebase-admin": "^11.0.0",
