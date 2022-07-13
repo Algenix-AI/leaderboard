@@ -23,12 +23,9 @@ initializeApp({
 
 router.get('/user/getUserStatistics/:idToken', async (req, res, next) => {
   const idToken = req.params.idToken;
-  console.log(idToken)
   getAuth()
     .verifyIdToken(idToken)
     .then(async (decodedToken) => {
-      console.log("Decoded token:")
-      console.log(decodedToken)
       const uid = decodedToken.uid;
       const results = await client.json.get(uid);
       res.status(200);
