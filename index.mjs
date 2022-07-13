@@ -30,14 +30,14 @@ app.use('/', authenticatedRoutes);
 
 const getRank = async (exercise, uid) => (await client.ZREVRANK(exercise, uid)) + 1;
 
-const getLeaderboardDisplayProfileData = async (uid, isAnonymousRequired) => {
+const getLeaderboardDisplayProfileData = async (uid, isAnonymityRequired) => {
   const profileData = await client.json.get(uid, {
     path: ['.nickname', '.photoURL', '.anonymous', '.anonymousName']
   });
   if (!profileData) return {};
   return {
-    nickname: isAnonymousRequired && profileData['.anonymous'] ? profileData['.anonymousName'] : profileData['.nickname'],
-    photoURL: isAnonymousRequired && profileData['.anonymous'] ? '' : profileData['.photoURL'],
+    nickname: isAnonymityRequired && profileData['.anonymous'] ? profileData['.anonymousName'] : profileData['.nickname'],
+    photoURL: isAnonymityRequired && profileData['.anonymous'] ? '' : profileData['.photoURL'],
     isAnonymous: profileData['.anonymous']
   };
 }
@@ -353,6 +353,17 @@ app.post('/user/addUserStatistics/:uid', async (req, res, next) => {
   try {
     await client.json.set(uid, '$', { ...userProfileStatistics, anonymousName: randomName() });
     res.sendStatus(200);
+  } catch (err) {
+    next(err);
+  }
+})
+
+app.get('/user/getMinorProfileStatistics/:uid', async (req, res, next) => {
+  const uid = req.params.uid;
+  try {
+    const results  = await getCurrentUserProfileDataPrivateLeaderboard(uid, true);
+    res.status(200);
+    res.send(results);
   } catch (err) {
     next(err);
   }
