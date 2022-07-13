@@ -8,6 +8,7 @@ Type=simple
 User=ubuntu
 ExecStart=/home/ubuntu/.nvm/versions/node/v16.15.1/bin/node /home/ubuntu/leaderboard/index.mjs
 Restart=on-failure
+Environment="NODE_ENV=production"
 
 [Install]
 WantedBy=multi-user.target

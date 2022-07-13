@@ -1,14 +1,21 @@
-import redis from "redis";
 import express from "express";
+import fs from 'fs';
+import https from 'https';
 import { nanoid } from "nanoid/non-secure";
 import { randomName } from "./anonNameGen.js";
-import https from 'https';
-import fs from 'fs';
+import authenticatedRoutes from "./authenticatedRoutes.mjs";
+import client from "./client.mjs";
+
+// sudo cp /home/ubuntu/leaderboard/leaderboard.service /usr/lib/systemd/system/
+// see commands.sh on how to restart
 
 //todo add 404s, if user does not exist or if rank/score do not exist
 const app = express();
+
 app.use(express.json());
-const allowedOrigins = process.env.NODE_ENV === 'production' ? [/https:\/\/form-for-average-joe.firebaseapp.com/, /https:\/\/form-for-average-joe.web.app/, /https:\/\/form-for-average-joe--staging-5vntiehb.web.app/, /https:\/\/form-for-average-joe--test-nptjlot4.web.app/] : [/.*/];
+
+// const allowedOrigins = process.env.NODE_ENV === 'production' ? [/https:\/\/form-for-average-joe.firebaseapp.com/, /https:\/\/form-for-average-joe.web.app/, /https:\/\/form-for-average-joe--staging-5vntiehb.web.app/, /https:\/\/form-for-average-joe--test-nptjlot4.web.app/] : [/.*/];
+const allowedOrigins = [/.*/];
 app.use(function (req, res, next) {
   const origin = req.headers.origin;
   if (allowedOrigins.some(x => x.test(origin))) {
@@ -19,19 +26,9 @@ app.use(function (req, res, next) {
   next();
 });
 
+app.use('/', authenticatedRoutes);
+
 const getRank = async (exercise, uid) => (await client.ZREVRANK(exercise, uid)) + 1;
-
-const client = redis.createClient({
-  socket: {
-    host: process.env.NODE_ENV === 'production' ? 'clustercfg.prod.8yggea.memorydb.ap-southeast-1.amazonaws.com'
-                                                : 'clustercfg.pushups.8yggea.memorydb.ap-southeast-1.amazonaws.com',
-    port: '6379',
-    tls: true
-  },
-  username: 'default'
-});
-
-client.on('error', (err) => console.log('Redis Client Error', err));
 
 const getLeaderboardDisplayProfileData = async (uid, isAnonymousRequired) => {
   const profileData = await client.json.get(uid, {
@@ -342,8 +339,8 @@ app.delete('/:exercise/deleteAllUsers', async (req, res) => {
 
 app.get('/deleteAllItemsUnsafe', async (req, res, next) => {
   try {
-    const allKeys = await client.KEYS('*');
-    const x = await client.DEL(allKeys[0]);
+    // const allKeys = await client.KEYS('*');
+    // const x = await client.DEL(allKeys[0]);
     res.sendStatus(200);
   } catch (err) {
     next(err);
@@ -387,17 +384,6 @@ app.get('/user/getUserCumulative/:exercise/:uid', async (req, res, next) => {
     const score = await client.ZSCORE(exercise, uid);
     const rank = await getRank(exercise, uid);
     res.send({ score, rank });
-  } catch (err) {
-    next(err);
-  }
-})
-
-app.get('/user/getUserStatistics/:uid', async (req, res, next) => {
-  const uid = req.params.uid;
-  try {
-    const results = await client.json.get(uid);
-    res.status(200);
-    res.send(results);
   } catch (err) {
     next(err);
   }
