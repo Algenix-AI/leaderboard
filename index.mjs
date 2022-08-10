@@ -9,7 +9,9 @@ import client from "./client.mjs";
 
 // sudo cp /home/ubuntu/leaderboard/leaderboard.service /usr/lib/systemd/system/
 // see commands.sh on how to restart
+// Environment="FIREBASE_AUTH_EMULATOR_HOST=localhost:9099"
 
+// <-- sudo cp /home/ubuntu/leaderboard/leaderboard.service /usr/lib/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart leaderboard
 //todo add 404s, if user does not exist or if rank/score do not exist
 const app = express();
 
